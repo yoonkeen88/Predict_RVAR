@@ -36,74 +36,49 @@ X_groups_train = [X[:train_size] for X in X_groups]
 X_groups_test = [X[train_size:] for X in X_groups]
 y_train, y_test = y[:train_size], y[train_size:]
 
-early_stopping = EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True)
-
-# --- 4. Multi-Input LSTM 모델 학습 및 평가 ---
-print("--- Training Multi-Input LSTM Model ---")
-multi_input_shapes = [X.shape[1:] for X in X_groups_train]
-model_multi = build_multi_input_lstm1(multi_input_shapes)
-
-history_multi = model_multi.fit(
-    X_groups_train, y_train,
-    epochs=500,
-    batch_size=32,
-    validation_split=0.2,
-    callbacks=[early_stopping],
-    verbose=1
-)
-
-y_pred_multi = model_multi.predict(X_groups_test)
-print("Multi-Input LSTM MSE:", mean_squared_error(y_test, y_pred_multi))
-print("Multi-Input LSTM MAE:", mean_absolute_error(y_test, y_pred_multi))
-print("-" * 40)
-
-
-# --- 5. Standard LSTM 모델 학습 및 평가 ---
-print("--- Training Standard LSTM Model ---")
-# 일반 LSTM을 위해 데이터셋 결합
 X_train_std = np.concatenate(X_groups_train, axis=2)
 X_test_std = np.concatenate(X_groups_test, axis=2)
 
-model_std = build_lstm(X_train_std.shape[1:])
+early_stopping = EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True)
 
-history_std = model_std.fit(
-    X_train_std, y_train,
-    epochs=500,
-    batch_size=32,
-    validation_split=0.2,
-    callbacks=[early_stopping],
-    verbose=1
-)
+# --- 4. 모델 학습 및 평가 ---
+results = {}
+loss_functions = ['mse', 'mae']
 
-y_pred_std = model_std.predict(X_test_std)
-print("Standard LSTM MSE:", mean_squared_error(y_test, y_pred_std))
-print("Standard LSTM MAE:", mean_absolute_error(y_test, y_pred_std))
-print("-" * 40)
+for loss in loss_functions:
+    print(f"--- Training Models with {loss.upper()} loss ---")
+    
+    # Multi-Input LSTM
+    print("Training Multi-Input LSTM...")
+    multi_input_shapes = [X.shape[1:] for X in X_groups_train]
+    model_multi = build_multi_input_lstm1(multi_input_shapes, loss_function=loss)
+    history_multi = model_multi.fit(X_groups_train, y_train, epochs=500, batch_size=25, validation_split=0.2, callbacks=[early_stopping], verbose=1)
+    y_pred_multi = model_multi.predict(X_groups_test)
+    results[f'multi_{loss}'] = {'pred': y_pred_multi, 'history': history_multi.history}
+    print(f"Multi-Input LSTM ({loss.upper()}) MSE: {mean_squared_error(y_test, y_pred_multi):.4f}, MAE: {mean_absolute_error(y_test, y_pred_multi):.4f}")
 
+    # Standard LSTM
+    print("Training Standard LSTM...")
+    model_std = build_lstm(X_train_std.shape[1:], loss_function=loss)
+    history_std = model_std.fit(X_train_std, y_train, epochs=500, batch_size=25, validation_split=0.2, callbacks=[early_stopping], verbose=1)
+    y_pred_std = model_std.predict(X_test_std)
+    results[f'std_{loss}'] = {'pred': y_pred_std, 'history': history_std.history}
+    print(f"Standard LSTM ({loss.upper()}) MSE: {mean_squared_error(y_test, y_pred_std):.4f}, MAE: {mean_absolute_error(y_test, y_pred_std):.4f}")
+    print("-"*50)
 
-# --- 6. 학습 과정 및 예측 결과 시각화 ---
-# Loss 시각화
-plt.figure(figsize=(14, 6))
-plt.subplot(1, 2, 1)
-plt.plot(history_multi.history['loss'], label='Multi-Input Train Loss')
-plt.plot(history_multi.history['val_loss'], label='Multi-Input Val Loss')
-plt.plot(history_std.history['loss'], label='Standard Train Loss', linestyle='--')
-plt.plot(history_std.history['val_loss'], label='Standard Val Loss', linestyle='--')
-plt.title('Model Training & Validation Loss')
-plt.xlabel('Epochs')
-plt.ylabel('Loss')
-plt.legend()
+# --- 5. 시각화 ---
+def plot_predictions(loss_type):
+    plt.figure(figsize=(12, 6))
+    plt.plot(y_test, label='True RVAR', color='black', linewidth=2)
+    plt.plot(results[f'multi_{loss_type}']['pred'], label=f'Multi-Input LSTM ({loss_type.upper()})', linestyle='-')
+    plt.plot(results[f'std_{loss_type}']['pred'], label=f'Standard LSTM ({loss_type.upper()})', linestyle='--')
+    plt.title(f'RVAR Prediction Comparison (Loss: {loss_type.upper()})')
+    plt.xlabel('Time')
+    plt.ylabel('RVAR')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(f'prediction_comparison_{loss_type}.png')
+    plt.show()
 
-# 예측 결과 시각화
-plt.subplot(1, 2, 2)
-plt.plot(y_test, label='True RVAR', color='black', linewidth=2)
-plt.plot(y_pred_multi, label='Multi-Input LSTM Prediction', color='red', linestyle='-')
-plt.plot(y_pred_std, label='Standard LSTM Prediction', color='blue', linestyle='--')
-plt.title('RVAR Prediction Comparison')
-plt.xlabel('Time')
-plt.ylabel('RVAR')
-plt.legend()
-
-plt.tight_layout()
-plt.savefig('Std_LSTM_VS_Multi-Input_LSTM_training_results.png')
-plt.show()
+plot_predictions('mse')
+plot_predictions('mae')
