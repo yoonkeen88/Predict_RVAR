@@ -1,1 +1,7 @@
 /papers
+
+.DS_Store
+.ipynb_checkpoints
+/__pycache__
+*.model
+*.pyc
