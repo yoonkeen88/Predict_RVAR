@@ -5,3 +5,14 @@
 /__pycache__
 *.model
 *.pyc
+GEMINI.md
+.gitignore
+
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.pdf
+*.csv
+*.xlsx
+*.log

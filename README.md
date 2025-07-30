@@ -1,4 +1,3 @@
-
 # 📈 Time Series RVAR Prediction Project (Multi-Model Ready)
 
 이 프로젝트는 실현변동성(RVAR: Realized Variance)을 예측하기 위해 다양한 시계열 모델 (LSTM, HAR, XGBoost, RandomForest 등)을 적용하기 위한 **공통 전처리 기반의 예측 시스템**입니다.  
@@ -17,10 +16,11 @@
 │   ├── rvar_generator.py            # 로그 수익률 및 RVAR 계산기
 │   └── make_lstm_dataset.py         # LSTM용 시차 데이터셋 생성기
 ├── models/
-│   └── lstm_model.py                # Multi-Input LSTM 모델 구조 정의
+│   └── lstm_model.py                # LSTM 모델 구조 정의 (일반 및 Multi-Input)
 ├── README.md                        # 본 문서
-├── run_lstm.py                      # 데이터 전처리 및 모델 학습-평가
+├── run_lstm.py                      # 데이터 전처리 및 모델 학습-평가, 롤링 윈도우 교차 검증
 ├── conda_requirements.txt           # 본 프로젝트 실행을 위한 라이브러리 정보
+├── GEMINI.md                        # Gemini CLI 세션 기록 및 컨텍스트
 ```
 
 ---
@@ -55,19 +55,28 @@
 
 `preprocessing/make_lstm_dataset.py`에서 다음과 같은 형태로 변환됩니다:
 
-- 의미 그룹별 입력 데이터 (4개 그룹 → 4개 Input)
+- **Multi-Input LSTM**: 의미 그룹별 입력 데이터 (4개 그룹 → 4개 Input)
   - 금융지표 / 수급 / 자금흐름 / RVAR 관련 입력 등
-- 각 그룹별 window: `t, t-1, t-2, t-3` (window=4)
-- 출력: `RVAR_{t+22}`
+  - 각 그룹별 window: `t, t-1, t-2, t-3` (window=4)
+  - 최종 형태:
+    ```python
+    x1: (n, 4, d1)
+    x2: (n, 4, d2)
+    x3: (n, 4, d3)
+    x4: (n, 4, d4)
+    y : (n, 1)
+    ```
+- **Standard LSTM**: 모든 입력 그룹을 하나의 시퀀스로 결합하여 단일 입력으로 사용합니다.
 
-최종 형태:
-```python
-x1: (n, 4, d1)
-x2: (n, 4, d2)
-x3: (n, 4, d3)
-x4: (n, 4, d4)
-y : (n, 1)
-```
+---
+
+## 롤링 윈도우 교차 검증 (Rolling Window Cross-Validation)
+
+`run_lstm.py`에서는 시계열 데이터에 적합한 롤링 윈도우 교차 검증 방식을 사용하여 모델의 성능을 평가합니다.
+
+- **작동 방식**: 초기 학습 윈도우를 설정하고, 모델을 학습한 후 다음 `n` 스텝을 예측합니다. 이후 학습 윈도우와 테스트 윈도우를 `n` 스텝만큼 미래로 이동하며 이 과정을 반복합니다.
+- **평가 지표**: 각 윈도우에서의 MSE(Mean Squared Error)와 MAE(Mean Absolute Error)를 기록하고, 모든 윈도우의 평균 성능을 최종 지표로 사용합니다.
+- **적용 모델**: 현재 Multi-Input LSTM (MSE/MAE) 및 Standard LSTM (MSE/MAE) 총 4가지 모델에 대해 롤링 윈도우 교차 검증을 수행합니다.
 
 ---
 
@@ -85,9 +94,8 @@ conda create --name new_env --file conda_requirements.txt
 
 ## 🔗 향후 계획
 
-- LSTM, Multi-Input LSTM 학습 및 비교 평가 모듈 추가
 - HAR / XGBoost / RandomForest 학습 추가
-- 모델별 결과 비교 및 시각화
+- 모델별 결과 비교 및 시각화 개선
 
 ---
 
