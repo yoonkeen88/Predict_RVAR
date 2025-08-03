@@ -32,7 +32,20 @@ def transform_to_stationary(df, column, signif=0.05):
         return diff_series, 'diff'
     return series, 'none'
 
-def apply_stationarity_transformation(df, exclude_cols=['Date', 'log_return', 'RVAR']):
+def apply_stationarity_transformation(df, exclude_cols=['Date', 'log_return', 'RVAR'], output_csv_path=None):
+    """
+    Applies stationarity transformations to the columns of a DataFrame and optionally saves the details to a CSV file.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame.
+        exclude_cols (list, optional): A list of columns to exclude from transformation. Defaults to ['Date', 'log_return', 'RVAR'].
+        output_csv_path (str, optional): If provided, the path to save the CSV file with transformation details.
+
+    Returns:
+        tuple: A tuple containing:
+            - transformed_df (pd.DataFrame): The DataFrame with stationary columns.
+            - transformations (dict): A dictionary mapping column names to the applied transformation method.
+    """
     transformed_df = pd.DataFrame()
     transformations = {}
     for col in df.columns:
@@ -45,4 +58,18 @@ def apply_stationarity_transformation(df, exclude_cols=['Date', 'log_return', 'R
         except:
             transformed_df[col] = df[col]
             transformations[col] = 'error'
+
+    if output_csv_path:
+        transform_details = []
+        for column, method in transformations.items():
+            diff_count = 1 if 'diff' in method else 0
+            transform_details.append({
+                'column': column,
+                'transformation': method,
+                'diff_count': diff_count
+            })
+        
+        transform_df = pd.DataFrame(transform_details)
+        transform_df.to_csv(output_csv_path, index=False, encoding='utf-8-sig')
+
     return transformed_df, transformations

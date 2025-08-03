@@ -14,9 +14,9 @@ df = generate_rvar_from_csv("data/VKOSPI_pred_data.csv")
 transformed_df, _ = apply_stationarity_transformation(df)
 final_df = pd.concat([df[['Date', 'RVAR']], transformed_df], axis=1).dropna().reset_index(drop=True)
 
-final_df['RVAR_lag_1'] = final_df['RVAR'].shift(1)
-final_df['RVAR_MA5'] = final_df['RVAR'].rolling(window=5).mean().shift(1)
-final_df['RVAR_MA22'] = final_df['RVAR'].rolling(window=22).mean().shift(1)
+final_df['vkospi_lag_1'] = final_df['VKOSPI'].shift(1)
+final_df['vkospi_MA5'] = final_df['VKOSPI'].rolling(window=5).mean().shift(1)
+final_df['vkospi_MA22'] = final_df['VKOSPI'].rolling(window=22).mean().shift(1)
 final_df.dropna(inplace=True)
 final_df.reset_index(drop=True, inplace=True)
 
@@ -24,7 +24,7 @@ final_df.reset_index(drop=True, inplace=True)
 group1 = ['코스피', '코스닥', '회사채(3년, AA-)', '회사채(3년, BBB-)', '국고채(1년)', '국고채(3년)', '국고채(5년)', '국고채(10년)', '국고채(20년)', '국고채(30년)', '통안증권(91일)', '통안증권(1년)', '통안증권(2년)', 'CD(91일)', '콜금리(1일, 전체거래)', 'KORIBOR(3개월)', 'KORIBOR(6개월)', 'KORIBOR(12개월)', 'DGS3MO', 'DGS1', 'DGS5', 'DGS30', 'Dow Jones Index', 'Nasdaq Index', 'S&P500 Index', 'CBOE Volatility Index (VIX)', 'WTI Index', 'Dollar Index', 'USD-KRW Exchange Rate', '금값', '코스피200']
 group2 = ['기관 합계', '개인', '외국인 합계', '위탁매매 미수금', '위탁매매 미수금 대비 실제 반대매매금액', '미수금 대비 반대매매비중(%)']
 group3 = ['투자자예탁금(장내파생상품  거래예수금제외)', '장내파생상품 거래 예수금', '대고객 환매 조건부 채권(RP) 매도잔고']
-group4 = ['RVAR_lag_1', 'RVAR_MA5', 'RVAR_MA22']
+group4 = ['vkospi_lag_1', 'vkospi_MA5', 'vkospi_MA22']
 groups = [group1, group2, group3, group4]
 
 X_groups = [create_lagged_dataset(final_df, group, 'RVAR', window=4)[0] for group in groups]

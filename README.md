@@ -45,28 +45,57 @@
 
 `preprocessing/rvar_generator.py`를 통해 다음 작업을 수행합니다:
 
-- KOSPI 종가를 기준으로 `log_return = log(S_t / S_{t-1})` 계산
-- `RVAR = Σ (log_return_{t+1}² ~ log_return_{t+22}²)` 로 22일 실현변동성 추출
+- KOSPI 종가를 기준으로 RVAR 계산
+- `RVAR = Σ log(S_{t+i} / S_t)^2, i = {1,2,...22}` 로 22일 실현변동성 추출
 - 이후 예측 대상 y로 사용 (`RVAR.shift(-21)`)
 
 ---
 
-## LSTM 입력 데이터 구조
+## 모델 상세 설명
 
-`preprocessing/make_lstm_dataset.py`에서 다음과 같은 형태로 변환됩니다:
+### 1. 데이터 구조
 
-- **Multi-Input LSTM**: 의미 그룹별 입력 데이터 (4개 그룹 → 4개 Input)
-  - 금융지표 / 수급 / 자금흐름 / RVAR 관련 입력 등
-  - 각 그룹별 window: `t, t-1, t-2, t-3` (window=4)
-  - 최종 형태:
-    ```python
-    x1: (n, 4, d1)
-    x2: (n, 4, d2)
-    x3: (n, 4, d3)
-    x4: (n, 4, d4)
-    y : (n, 1)
-    ```
-- **Standard LSTM**: 모든 입력 그룹을 하나의 시퀀스로 결합하여 단일 입력으로 사용합니다.
+모델은 **Multi-Input LSTM**과 **Standard LSTM** 두 가지 구조를 비교하며, 두 모델 모두 동일한 데이터셋을 기반으로 하지만 입력 형태가 다릅니다.
+
+#### **예측 대상 (Target Variable)**
+
+*   **`RVAR` (Realized Volatility, 실현 변동성)**: 모델이 최종적으로 예측하고자 하는 값입니다. 현재 `rvar_generator.py`에서는 코스피(KOSPI) 지수의 과거 22일간의 일별 로그 수익률 제곱합으로 계산되고 있습니다.
+
+#### **입력 변수 (Input Features)**
+
+입력 변수들은 총 4개의 그룹으로 나뉘어 **Multi-Input LSTM** 모델의 각기 다른 입력으로 사용됩니다. **Standard LSTM**은 이 4개 그룹을 하나로 합쳐서 사용합니다.
+
+*   **데이터 전처리**: 모든 입력 변수들은 모델 학습 전에 `stationarity_transform.py`를 통해 **정상성(Stationarity)**을 갖도록 변환됩니다. 이는 시계열 데이터의 안정성을 확보하여 모델 성능을 높이기 위함이며, 주로 로그 변환, 차분(differencing) 등이 적용됩니다.
+
+*   **Group 1: 거시 경제 및 시장 지표 (총 31개)**
+    *   국내외 주가 지수 (`코스피`, `코스닥`, `Dow Jones` 등)
+    *   채권 금리 (`국고채`, `회사채` 등)
+    *   변동성 및 위험 지표 (`VIX`, `Dollar Index` 등)
+    *   원자재 및 환율 (`WTI`, `USD-KRW Exchange Rate` 등)
+
+*   **Group 2: 수급 주체 관련 지표 (총 6개)**
+    *   투자 주체별 순매수 (`기관`, `개인`, `외국인`)
+    *   시장 신용 관련 데이터 (`위탁매매 미수금` 등)
+
+*   **Group 3: 유동성 관련 지표 (총 3개)**
+    *   `투자자예탁금`, `RP 매도잔고` 등 시장의 전반적인 자금 흐름을 나타내는 지표
+
+*   **Group 4: VKOSPI 기반 파생 변수 (총 3개)**
+    *   **`vkospi_lag_1`**: VKOSPI 지수의 1일 전 값
+    *   **`vkospi_MA5`**: VKOSPI 지수의 과거 5일 이동평균
+    *   **`vkospi_MA22`**: VKOSPI 지수의 과거 22일 이동평균
+
+### 2. 모델 구조 및 예측 방식
+
+#### **시차 (Time Lag / Window)**
+
+*   모델은 **과거 4일**의 데이터를 사용하여 미래를 예측합니다.
+*   `make_lstm_dataset.py`의 `create_lagged_dataset` 함수에서 `window=4`로 설정되어, 모든 입력 변수 그룹을 4일치 묶음(sequence)으로 만듭니다.
+
+#### **예측 시점 (Prediction Horizon)**
+
+*   모델은 **1일 후**의 `RVAR` 값을 예측합니다.
+*   즉, **과거 4일간의 데이터(t-3, t-2, t-1, t)를 사용하여 다음 날(t+1)의 RVAR 값을 예측**하는 구조입니다.
 
 ---
 
