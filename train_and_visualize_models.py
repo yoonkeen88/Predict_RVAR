@@ -10,7 +10,7 @@ from preprocessing.make_lstm_dataset import create_lagged_dataset
 from models.lstm_model import build_multi_input_lstm1, build_lstm
 
 # --- 1. 데이터 준비 ---
-df = generate_rvar_from_csv("data/VKOSPI_pred_data.csv")
+df = generate_rvar_from_csv("data/merged_data.csv")
 transformed_df, _ = apply_stationarity_transformation(df)
 final_df = pd.concat([df[['Date', 'RVAR']], transformed_df], axis=1).dropna().reset_index(drop=True)
 
@@ -51,8 +51,8 @@ for loss in loss_functions:
     # Multi-Input LSTM
     print("Training Multi-Input LSTM...")
     multi_input_shapes = [X.shape[1:] for X in X_groups_train]
-    model_multi = build_multi_input_lstm1(multi_input_shapes, loss_function=loss)
-    history_multi = model_multi.fit(X_groups_train, y_train, epochs=500, batch_size=32, validation_split=0.2, callbacks=[early_stopping], verbose=0)
+    model_multi = build_multi_input_lstm1(multi_input_shapes ,loss_function=loss)
+    history_multi = model_multi.fit(X_groups_train, y_train, epochs=500, batch_size=25, validation_split=0.2, callbacks=[early_stopping], verbose=0)
     y_pred_multi = model_multi.predict(X_groups_test)
     results[f'multi_{loss}'] = {'pred': y_pred_multi, 'history': history_multi.history}
     print(f"Multi-Input LSTM ({loss.upper()}) MSE: {mean_squared_error(y_test, y_pred_multi):.4f}, MAE: {mean_absolute_error(y_test, y_pred_multi):.4f}")
@@ -72,7 +72,7 @@ def plot_predictions(loss_type):
     plt.plot(y_test, label='True RVAR', color='black', linewidth=2)
     plt.plot(results[f'multi_{loss_type}']['pred'], label=f'Multi-Input LSTM ({loss_type.upper()})', linestyle='-')
     plt.plot(results[f'std_{loss_type}']['pred'], label=f'Standard LSTM ({loss_type.upper()})', linestyle='--')
-    plt.title(f'RVAR Prediction Comparison (Loss: {loss_type.upper()})')
+    plt.title(f'RVAR Prediction Comparison(units=) (Loss: {loss_type.upper()})')
     plt.xlabel('Time')
     plt.ylabel('RVAR')
     plt.legend()

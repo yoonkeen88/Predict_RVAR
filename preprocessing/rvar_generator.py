@@ -11,6 +11,9 @@ def generate_rvar_from_csv(path):
         df[col] = df[col].astype(str).str.replace(',', '').str.strip()
         df[col] = pd.to_numeric(df[col], errors='coerce')
 
+    # 일별 로그 수익률 계산
+    df['log_return'] = np.log(df['코스피'] / df['코스피'].shift(1))
+
     rvar_components = []
     for i in range(1, 23):
         log_return_i = np.log(df['코스피'] / df['코스피'].shift(i))
